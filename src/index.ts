@@ -67,6 +67,7 @@ app.use(helmet({
 const getAllowedOrigins = (): string[] => {
   const baseOrigins = [
     'http://localhost:3000',        // Local development
+    'http://localhost:3001',        // Alternative local dev port
     'http://frontend:3000',         // Docker container communication
     'https://skillyug-frontend.vercel.app', // Vercel deployment
     'https://skillyug-backend.onrender.com', // Render backend (for testing)
@@ -97,8 +98,10 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
+    // Check if origin is in allowed list or matches Vercel preview deployments
+    const isVercelPreview = origin.match(/^https:\/\/skillyug-frontend-.*\.vercel\.app$/);
+    
+    if (allowedOrigins.includes(origin) || isVercelPreview) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked origin: ${origin}`);
