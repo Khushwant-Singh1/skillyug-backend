@@ -68,6 +68,8 @@ const getAllowedOrigins = (): string[] => {
   const baseOrigins = [
     'http://localhost:3000',        // Local development
     'http://frontend:3000',         // Docker container communication
+    'https://skillyug-frontend.vercel.app', // Vercel deployment
+    'https://skillyug-backend.onrender.com', // Render backend (for testing)
   ];
   
   // Add production origins only in production
@@ -90,18 +92,13 @@ const allowedOrigins = getAllowedOrigins();
 
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // In development, allow requests with no origin (like Postman, curl)
-    if (!origin && process.env.NODE_ENV === 'development') {
+    // Allow requests with no origin (like health checks, curl, Postman, server-to-server)
+    if (!origin) {
       return callback(null, true);
     }
     
-    // In production, require origin header
-    if (!origin && process.env.NODE_ENV === 'production') {
-      console.warn('CORS blocked: No origin header in production');
-      return callback(new Error('Origin header required'), false);
-    }
-    
-    if (origin && allowedOrigins.includes(origin)) {
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked origin: ${origin}`);
