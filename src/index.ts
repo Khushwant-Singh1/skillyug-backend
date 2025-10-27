@@ -4,7 +4,7 @@ import Razorpay from "razorpay"
 import cors from "cors"
 import helmet from "helmet"
 import morgan from "morgan"
-import rateLimit from "express-rate-limit"
+// import rateLimit from "express-rate-limit" // TEMPORARILY DISABLED
 import prisma from "./utils/prisma"
 
 // Import new modular routers
@@ -118,6 +118,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Rate limiting with different tiers
+// TEMPORARILY DISABLED FOR DEVELOPMENT
+/*
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // Limit each IP to 100 requests per windowMs
@@ -161,10 +163,11 @@ const _strictLimiter = rateLimit({
         code: 'STRICT_RATE_LIMIT_EXCEEDED'
     }
 });
+*/
 
 // Apply rate limiting
-app.use('/api', generalLimiter);
-app.use('/api/auth', authLimiter);
+// app.use('/api', generalLimiter);
+// app.use('/api/auth', authLimiter);
 
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10kb' }));
