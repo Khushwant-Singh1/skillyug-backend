@@ -49,6 +49,9 @@ export const instance = new Razorpay({
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy - required for Render and other reverse proxy deployments
+app.set('trust proxy', 1);
+
 // --- Core Middleware ---
 // Security headers with helmet
 app.use(helmet({
