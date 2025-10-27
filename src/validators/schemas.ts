@@ -33,7 +33,7 @@ export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   userType: userTypeSchema,
-}).strict();
+}); // Removed .strict() to allow extra fields from frontend
 
 export const loginSchema = z.object({
   email: emailSchema,
