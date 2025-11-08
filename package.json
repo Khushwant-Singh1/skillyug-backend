@@ -9,7 +9,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "prestart": "pnpm run build",
-    "start": "node ./dist/index.js",
+    "start": "node ./dist/src/index.js",
     "start:test": "node ./dist/index-test.js",
     "dev": "concurrently \"pnpm run watch\" \"pnpm run serve\"",
     "dev:test": "concurrently \"pnpm run watch\" \"pnpm start:test\"",
