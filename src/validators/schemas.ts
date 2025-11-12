@@ -87,11 +87,11 @@ export const createCourseSchema = z.object({
   courseName: z.string()
     .min(3, 'Course name must be at least 3 characters')
     .max(200, 'Course name must be less than 200 characters'),
-  token: z.number()
+  token: z.coerce.number()
     .min(0, 'Token cannot be negative')
     .max(999999, 'Token is too high')
     .default(0),
-  price: z.number()
+  price: z.coerce.number()
     .min(0, 'Price cannot be negative')
     .max(999999, 'Price is too high'),
   instructor: z.string()
@@ -104,12 +104,22 @@ export const createCourseSchema = z.object({
   imageUrl: z.string()
     .url('Invalid image URL')
     .max(500, 'Image URL must be less than 500 characters'),
-  category: z.string()
-    .min(1, 'Category is required')
-    .max(50, 'Category must be less than 50 characters'),
-  difficulty: z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED'])
+  category: z.enum([
+    'PROGRAMMING',
+    'WEB_DEVELOPMENT',
+    'MOBILE_DEVELOPMENT',
+    'DATA_SCIENCE',
+    'ARTIFICIAL_INTELLIGENCE',
+    'CLOUD_COMPUTING',
+    'CYBERSECURITY',
+    'DESIGN',
+    'BUSINESS',
+    'MARKETING',
+    'OTHER'
+  ]),
+  difficulty: z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'])
     .default('BEGINNER'),
-  durationHours: z.number()
+  durationHours: z.coerce.number()
     .min(1, 'Duration must be at least 1 hour')
     .max(1000, 'Duration is too long')
     .optional(),
