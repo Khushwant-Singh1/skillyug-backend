@@ -4,28 +4,22 @@ import Razorpay from "razorpay"
 import cors from "cors"
 import helmet from "helmet"
 import morgan from "morgan"
-// import rateLimit from "express-rate-limit" // TEMPORARILY DISABLED
 import prisma from "./utils/prisma"
-
-// Import new modular routers
 import authRouter from "./router/auth.router"
 import courseRouter from "./router/course.router"
 import paymentRouter from "./router/payment.router"
 import purchaseRouter from "./router/purchase.router"
 import userRouter from "./router/userRouter"
 import recommendationRouter from "./router/recommendation.router"
-
-// Import new error handling middleware
 import { globalErrorHandler } from "./middleware/errorHandler.middleware"
 
-// Load environment variables at the very top
 dotenv.config()
 
-// --- Database Connection ---
+// Database Connection
 async function connectToDatabase() {
   try {
     await prisma.$connect();
-    console.log('✅ Database connected successfully');
+    console.log('✅ Database connected');
   } catch (error) {
     console.error('❌ Database connection failed:', error);
     process.exit(1);
@@ -34,9 +28,9 @@ async function connectToDatabase() {
 
 connectToDatabase();
 
-// --- Razorpay Instance ---
+// Razorpay Setup
 if (!process.env.RAZORPAY_KEY || !process.env.RAZORPAY_SECRET) {
-    console.error("❌ Fatal Error: Razorpay Key or Secret is not defined in .env file");
+    console.error("❌ Razorpay credentials missing in .env");
     process.exit(1);
 }
 
@@ -45,15 +39,12 @@ export const instance = new Razorpay({
     key_secret: process.env.RAZORPAY_SECRET
 });
 
-// --- Express App Initialization ---
+// Express App
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// Trust proxy - required for Render and other reverse proxy deployments
 app.set('trust proxy', 1);
 
-// --- Core Middleware ---
-// Security headers with helmet
+// Middleware
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
@@ -66,132 +57,40 @@ app.use(helmet({
   },
 }));
 
-// CORS configuration with secure origin handling
-const getAllowedOrigins = (): string[] => {
-  const baseOrigins = [
-    'http://localhost:3000',        // Local development
-    'http://localhost:3001',        // Alternative local dev port
-    'http://frontend:3000',         // Docker container communication
-    'https://skillyug-frontend.vercel.app', // Vercel deployment
-    'https://skillyug-backend.onrender.com', // Render backend (for testing)
-  ];
-  
-  // Add production origins only in production
-  if (process.env.NODE_ENV === 'production') {
-    baseOrigins.push(
-      'https://skillyug.com',
-      'https://www.skillyug.com'
-    );
-  }
-  
-  // Add environment-specific origins if defined
-  if (process.env.FRONTEND_URL) {
-    baseOrigins.push(process.env.FRONTEND_URL);
-  }
-  
-  return baseOrigins.filter(Boolean);
-};
+// CORS Configuration - Restricted to specific origins
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://frontend:3000',
+  'https://skillyug-frontend.vercel.app',
+  process.env.FRONTEND_URL,
+  process.env.NEXT_PUBLIC_FRONTEND_URL,
+].filter(Boolean) as string[];
 
-const allowedOrigins = getAllowedOrigins();
-
-const corsOptions = {
-  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Allow requests with no origin (like health checks, curl, Postman, server-to-server)
-    if (!origin) {
-      return callback(null, true);
-    }
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, server-to-server)
+    if (!origin) return callback(null, true);
     
-    // Check if origin is in allowed list or matches Vercel preview deployments
-    const isVercelPreview = origin.match(/^https:\/\/skillyug-frontend-.*\.vercel\.app$/);
-    
-    if (allowedOrigins.includes(origin) || isVercelPreview) {
+    // Check if origin is allowed or is a Vercel preview deployment
+    if (allowedOrigins.includes(origin) || origin.match(/^https:\/\/.*\.vercel\.app$/)) {
       callback(null, true);
     } else {
-      console.warn(`CORS blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'), false);
+      console.warn(`🚫 CORS blocked: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-User-ID', 'X-User-Type'],
-  exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   maxAge: 86400, // 24 hours
-};
-app.use(cors(corsOptions));
-
-// Rate limiting with different tiers
-// TEMPORARILY DISABLED FOR DEVELOPMENT
-/*
-const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: 'Too many requests from this IP, please try again after 15 minutes',
-        code: 'RATE_LIMIT_EXCEEDED'
-    },
-    skip: (req) => {
-        // Skip rate limiting for health checks
-        return req.path === '/api/test' || req.path === '/';
-    }
-});
-
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limit auth attempts to 10 per 15 minutes (fixed from 1000)
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: 'Too many authentication attempts, please try again after 15 minutes',
-        code: 'AUTH_RATE_LIMIT_EXCEEDED'
-    },
-    // Skip rate limiting for successful requests
-    skipSuccessfulRequests: true,
-    // Use IP + user agent for more accurate limiting
-    keyGenerator: (req) => {
-        return `${req.ip}-${req.get('User-Agent')?.substring(0, 50) || 'unknown'}`;
-    }
-});
-
-// Stricter rate limiting for sensitive operations
-const _strictLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 5, // Only 5 attempts per hour for password reset, etc.
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: 'Too many sensitive operation attempts, please try again after 1 hour',
-        code: 'STRICT_RATE_LIMIT_EXCEEDED'
-    }
-});
-*/
-
-// Apply rate limiting
-// app.use('/api', generalLimiter);
-// app.use('/api/auth', authLimiter);
+}));
 
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10kb' }));
 app.use(urlencoded({ extended: true }));
 
-// Debug middleware for auth endpoints
-app.use('/api/auth', (req: Request, res: Response, next: NextFunction) => {
-    console.log(`🔍 Auth Request Debug:`, {
-        method: req.method,
-        url: req.url,
-        body: req.body,
-        headers: {
-            'content-type': req.headers['content-type'],
-            'origin': req.headers.origin,
-            'user-agent': req.headers['user-agent']?.substring(0, 50)
-        }
-    });
-    next();
-});
-
-// --- Health Check and Public Routes ---
+// Health Check Routes
 app.get('/api/test', (req: Request, res: Response) => {
     res.status(200).json({ 
         message: 'Backend API is working!',
@@ -204,12 +103,11 @@ app.get("/", (req: Request, res: Response) => {
     res.status(200).send("<h1>Backend is up and running!</h1>");
 });
 
-// Legacy endpoint for Razorpay key (kept for backward compatibility)
 app.get('/api/getKey', (req: Request, res: Response) => {
     res.status(200).json({ key: process.env.RAZORPAY_KEY });
 });
 
-// --- API Routes ---
+// API Routes
 app.use("/api/auth", authRouter);
 app.use("/api/courses", courseRouter);
 app.use("/api/payments", paymentRouter);
@@ -217,41 +115,35 @@ app.use("/api/purchases", purchaseRouter);
 app.use("/api/users", userRouter);
 app.use("/api/recommendations", recommendationRouter);
 
-// --- 404 Handler for unmatched routes ---
+// 404 Handler
 app.use((req: Request, res: Response, _next: NextFunction) => {
     res.status(404).json({
         status: 'fail',
-        message: `Can't find ${req.originalUrl} on this server!`
+        message: `Route not found: ${req.originalUrl}`
     });
 });
 
-// --- Global Error Handling Middleware ---
+// Global Error Handler
 app.use(globalErrorHandler);
 
-// --- Server Startup ---
+// Start Server
 const server = app.listen(PORT, () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🌐 CORS enabled for: ${allowedOrigins.join(', ')}`);
+    console.log(`🔒 CORS enabled for: ${allowedOrigins.join(', ')}`);
 });
 
-// --- Graceful Shutdown ---
-const gracefulShutdown = (signal: string) => {
-    console.log(`\n🚨 Received ${signal}. Shutting down gracefully...`);
+// Graceful Shutdown
+const shutdown = async (signal: string) => {
+    console.log(`\n🚨 ${signal} received. Shutting down...`);
     server.close(async () => {
-        console.log('✅ HTTP server closed.');
-        try {
-            await prisma.$disconnect();
-            console.log('✅ Database connection closed.');
-            process.exit(0);
-        } catch (error) {
-            console.error('❌ Error during database disconnection:', error);
-            process.exit(1);
-        }
+        await prisma.$disconnect();
+        console.log('✅ Server closed');
+        process.exit(0);
     });
 };
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 export default app;

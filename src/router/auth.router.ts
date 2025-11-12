@@ -2,98 +2,25 @@ import { Router } from 'express';
 import { authController } from '../controllers/auth.controller';
 import { protect } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
-import { 
-  authRateLimit,
-  loginRateLimit,
-  otpRateLimit,
-  passwordResetRateLimit
-} from '../middleware/rateLimiter.middleware';
-import { 
-  registerSchema,
-  loginSchema,
-  emailLoginSchema,
-  verifyOtpSchema,
-  resendOtpSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  changePasswordSchema
-} from '../validators/schemas';
+import { authRateLimit, loginRateLimit, otpRateLimit, passwordResetRateLimit } from '../middleware/rateLimiter.middleware';
+import { registerSchema, loginSchema, emailLoginSchema, verifyOtpSchema, resendOtpSchema, forgotPasswordSchema, resetPasswordSchema, changePasswordSchema } from '../validators/schemas';
 
-export const authRouter = Router();
+const authRouter = Router();
 
-// Register a new user with OTP
-authRouter.post(
-  '/register',
-  otpRateLimit,
-  validateRequest({ body: registerSchema }),
-  authController.register.bind(authController)
-);
+// Public routes
+authRouter.post('/register', otpRateLimit, validateRequest({ body: registerSchema }), (req, res, next) => authController.register(req, res, next));
+authRouter.post('/verify-otp', authRateLimit, validateRequest({ body: verifyOtpSchema }), (req, res, next) => authController.verifyOtp(req, res, next));
+authRouter.post('/resend-otp', otpRateLimit, validateRequest({ body: resendOtpSchema }), (req, res, next) => authController.resendOtp(req, res, next));
+authRouter.post('/login', loginRateLimit, validateRequest({ body: loginSchema }), (req, res, next) => authController.login(req, res, next));
+authRouter.post('/login-check', loginRateLimit, validateRequest({ body: emailLoginSchema }), (req, res, next) => authController.checkLoginCredentials(req, res, next));
+authRouter.post('/forgot-password', passwordResetRateLimit, validateRequest({ body: forgotPasswordSchema }), (req, res, next) => authController.forgotPassword(req, res, next));
+authRouter.patch('/reset-password/:token', authRateLimit, validateRequest({ body: resetPasswordSchema }), (req, res, next) => authController.resetPassword(req, res, next));
 
-// Verify OTP
-authRouter.post(
-  '/verify-otp',
-  authRateLimit,
-  validateRequest({ body: verifyOtpSchema }),
-  authController.verifyOtp.bind(authController)
-);
-
-// Resend OTP
-authRouter.post(
-  '/resend-otp',
-  otpRateLimit,
-  validateRequest({ body: resendOtpSchema }),
-  authController.resendOtp.bind(authController)
-);
-
-// Login route
-authRouter.post(
-  '/login',
-  loginRateLimit,
-  validateRequest({ body: loginSchema }),
-  authController.login.bind(authController)
-);
-
-// Login check route - validates credentials and handles unverified users
-authRouter.post(
-  '/login-check',
-  loginRateLimit,
-  validateRequest({ body: emailLoginSchema }),
-  authController.checkLoginCredentials.bind(authController)
-);
-
-// Forgot Password
-authRouter.post(
-  '/forgot-password',
-  passwordResetRateLimit,
-  validateRequest({ body: forgotPasswordSchema }),
-  authController.forgotPassword.bind(authController)
-);
-
-// Reset Password
-authRouter.patch(
-  '/reset-password/:token',
-  authRateLimit,
-  validateRequest({ body: resetPasswordSchema }),
-  authController.resetPassword.bind(authController)
-);
-
-// Protected routes (require authentication)
+// Protected routes
 authRouter.use(protect);
-
-// Get current user
-authRouter.get('/me', authController.getCurrentUser.bind(authController));
-
-// Update Password (for authenticated users)
-authRouter.patch(
-  '/change-password',
-  validateRequest({ body: changePasswordSchema }),
-  authController.changePassword.bind(authController)
-);
-
-// Logout user
-authRouter.post('/logout', authController.logout.bind(authController));
-
-// Refresh token
-authRouter.post('/refresh', authController.refreshToken.bind(authController));
+authRouter.get('/me', (req, res, next) => authController.getCurrentUser(req, res, next));
+authRouter.patch('/change-password', validateRequest({ body: changePasswordSchema }), (req, res, next) => authController.changePassword(req, res, next));
+authRouter.post('/logout', (req, res, next) => authController.logout(req, res, next));
+authRouter.post('/refresh', (req, res, next) => authController.refreshToken(req, res, next));
 
 export default authRouter;

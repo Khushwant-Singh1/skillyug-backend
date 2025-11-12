@@ -2,16 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/auth.service';
 import { ResponseUtil } from '../utils/response';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { 
-  registerSchema as _registerSchema,
-  loginSchema as _loginSchema,
-  emailLoginSchema as _emailLoginSchema,
-  verifyOtpSchema as _verifyOtpSchema,
-  resendOtpSchema as _resendOtpSchema,
-  forgotPasswordSchema as _forgotPasswordSchema,
-  resetPasswordSchema as _resetPasswordSchema,
-  changePasswordSchema as _changePasswordSchema
-} from '../validators/schemas';
 import type {
   RegisterInput,
   LoginInput,
@@ -23,209 +13,137 @@ import type {
   ChangePasswordInput
 } from '../validators/schemas';
 
-/**
- * Authentication Controller
- * Handles HTTP requests for authentication operations
- * Business logic is delegated to AuthService
- */
+// Authentication Controller - Handles HTTP requests, delegates logic to AuthService
 export class AuthController {
 
-  /**
-   * Register new user
-   * POST /api/auth/register
-   */
+  // Register new user
   async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const userData: RegisterInput = req.body;
-      
-      const result = await authService.register(userData);
-      
-      ResponseUtil.created(res, result, 'Registration successful. Please check your email for verification.');
+      const result = await authService.register(req.body as RegisterInput);
+      ResponseUtil.created(res, result, 'Registration successful. Check your email.');
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Verify OTP
-   * POST /api/auth/verify-otp
-   */
+  // Verify OTP
   async verifyOtp(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, otp }: VerifyOtpInput = req.body;
-      
+      const { email, otp } = req.body as VerifyOtpInput;
       const result = await authService.verifyOtp(email, otp);
-      
-      ResponseUtil.success(res, result, 'Email verified successfully');
+      ResponseUtil.success(res, result, 'Email verified');
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Resend OTP
-   * POST /api/auth/resend-otp
-   */
+  // Resend OTP
   async resendOtp(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email }: ResendOtpInput = req.body;
-      
+      const { email } = req.body as ResendOtpInput;
       const result = await authService.resendOtp(email);
-      
-      ResponseUtil.success(res, result, 'New OTP sent successfully');
+      ResponseUtil.success(res, result, 'New OTP sent');
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Login user
-   * POST /api/auth/login
-   */
+  // Login user
   async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, password }: LoginInput = req.body;
-      
+      const { email, password } = req.body as LoginInput;
       const result = await authService.login(email, password);
-      
       ResponseUtil.success(res, result, 'Login successful');
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Check login credentials (handles both verified and unverified users)
-   * POST /api/auth/login-check
-   */
+  // Check login credentials (handles verified and unverified users)
   async checkLoginCredentials(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, password }: EmailLoginInput = req.body;
-      
+      const { email, password } = req.body as EmailLoginInput;
       const result = await authService.checkLoginCredentials(email, password);
-      
-      if (result.needsVerification) {
-        ResponseUtil.success(res, result, result.message);
-      } else {
-        ResponseUtil.success(res, result, result.message);
-      }
+      ResponseUtil.success(res, result, result.message);
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Forgot password
-   * POST /api/auth/forgot-password
-   */
+  // Forgot password
   async forgotPassword(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email }: ForgotPasswordInput = req.body;
-      
+      const { email } = req.body as ForgotPasswordInput;
       const result = await authService.forgotPassword(email);
-      
       ResponseUtil.success(res, result, 'Password reset link sent');
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Reset password
-   * PATCH /api/auth/reset-password/:token
-   */
+  // Reset password
   async resetPassword(req: Request, res: Response, next: NextFunction) {
     try {
       const { token } = req.params;
-      const { password, confirmPassword }: ResetPasswordInput = req.body;
-      
+      const { password, confirmPassword } = req.body as ResetPasswordInput;
       const result = await authService.resetPassword(token, password, confirmPassword);
-      
       ResponseUtil.success(res, result, 'Password reset successful');
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Change password (authenticated users)
-   * PATCH /api/auth/change-password
-   */
+  // Change password
   async changePassword(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const { currentPassword, newPassword }: ChangePasswordInput = req.body;
-      const userId = req.user?.id;
-
-      if (!userId) {
-        return ResponseUtil.unauthorized(res, 'User not authenticated');
+      const { currentPassword, newPassword } = req.body as ChangePasswordInput;
+      if (!req.user?.id) {
+        return ResponseUtil.unauthorized(res, 'Not authenticated');
       }
-      
-      const result = await authService.changePassword(userId, currentPassword, newPassword);
-      
-      ResponseUtil.success(res, result, 'Password changed successfully');
+      const result = await authService.changePassword(req.user.id, currentPassword, newPassword);
+      ResponseUtil.success(res, result, 'Password changed');
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Get current user
-   * GET /api/auth/me
-   */
+  // Get current user
   async getCurrentUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.id;
-
-      if (!userId) {
-        return ResponseUtil.unauthorized(res, 'User not authenticated');
+      if (!req.user?.id) {
+        return ResponseUtil.unauthorized(res, 'Not authenticated');
       }
-      
-      const user = await authService.getCurrentUser(userId);
-      
-      ResponseUtil.success(res, { user }, 'User profile retrieved successfully');
+      const user = await authService.getCurrentUser(req.user.id);
+      ResponseUtil.success(res, { user }, 'User profile retrieved');
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Logout user
-   * POST /api/auth/logout
-   */
+  // Logout user
   async logout(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const token = req.headers.authorization?.split(' ')[1];
-      
-      if (token) {
-        await authService.logout(token);
-      }
-      
-      ResponseUtil.successMessage(res, 'Logged out successfully');
+      if (token) await authService.logout(token);
+      ResponseUtil.successMessage(res, 'Logged out');
     } catch (error) {
       next(error);
     }
   }
 
-  /**
-   * Refresh token
-   * POST /api/auth/refresh
-   */
+  // Refresh token
   async refreshToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const { refreshToken } = req.body;
-      
       if (!refreshToken) {
-        return ResponseUtil.fail(res, 'Refresh token is required');
+        return ResponseUtil.fail(res, 'Refresh token required');
       }
-      
       const result = await authService.refreshToken(refreshToken);
-      
-      ResponseUtil.success(res, result, 'Token refreshed successfully');
+      ResponseUtil.success(res, result, 'Token refreshed');
     } catch (error) {
       next(error);
     }
   }
 }
 
-// Export singleton instance
 export const authController = new AuthController();
