@@ -124,7 +124,8 @@ export const createCourseSchema = z.object({
     .optional(),
 }).strict();
 
-export const updateCourseSchema = createCourseSchema.partial().strict();
+// Update schema - allows partial updates and strips unknown fields
+export const updateCourseSchema = createCourseSchema.partial().strip();
 
 export const courseIdSchema = z.object({
   id: z.string()

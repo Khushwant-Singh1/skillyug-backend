@@ -15,6 +15,7 @@ COPY pnpm-workspace.yaml* ./
 COPY prisma/ ./prisma/
 
 # Install dependencies
+RUN apk add --no-cache iputils && ping -c 4 registry.npmjs.org
 RUN pnpm install --frozen-lockfile
 
 # Copy source code

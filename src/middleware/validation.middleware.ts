@@ -75,6 +75,10 @@ export const validateRequest = (schemas: {
           req.body = schemas.body.parse(req.body);
         } catch (error) {
           if (error instanceof ZodError) {
+            console.error('Body validation failed:', {
+              receivedData: req.body,
+              errors: error.errors
+            });
             errors.push(...error.errors.map(err => ({
               location: 'body',
               field: err.path.join('.'),
